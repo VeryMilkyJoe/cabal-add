@@ -89,8 +89,10 @@ test-suite cabal-add-tests
 
 test-suite cabal-add-unit-tests
   type:                 exitcode-stdio-1.0
-  hs-source-dirs:       tests/
   main-is:              UnitTests.hs
+  hs-source-dirs:       tests/
+  default-language:   GHC2021
+  ghc-options:        -Wall
   build-depends:
         base <5,
         bytestring,

@@ -409,10 +409,14 @@ isFieldWithName name = \case
   Field (Name _ fieldName) _ -> name == fieldName
   _ -> False
 
-detectLeadingComma :: ByteString -> Maybe ByteString
-detectLeadingComma xs = case B.uncons xs of
+detectLeadingSeparator :: ByteString -> Maybe ByteString
+detectLeadingSeparator xs = case B.uncons xs of
   Just (',', ys) -> Just $ B.cons ',' $ B.takeWhile (== ' ') ys
+  Just (' ', ys) -> Just $ B.takeWhile (== ' ') ys
   _ -> Nothing
+
+isCommaSeparated :: ByteString -> Bool
+isCommaSeparated xs = ',' `B.elem` xs
 
 dropRepeatingSpaces :: ByteString -> ByteString
 dropRepeatingSpaces xs = case B.uncons xs of
@@ -437,14 +441,14 @@ fancyAlgorithm Config {cnfFields, cnfComponent, cnfOrigContents, cnfAdditions, c
         _ -> Nothing
       fillerPred c = isSpaceChar8 c || c == ','
 
-  let (B.takeWhileEnd fillerPred -> pref, B.takeWhile fillerPred -> suff) =
-        splitAtPosition firstDepPos cnfOrigContents
+  let (rawPref, rawSuff) = splitAtPosition firstDepPos cnfOrigContents
+      (B.takeWhileEnd fillerPred -> pref, B.takeWhile fillerPred -> suff) = (rawPref, rawSuff)
       prefSuff = pref <> suff
-
+      noCommaSeparation = not (isCommaSeparated rawSuff) && (cnfTargetField /= BuildDepends)
       (afterLast, inBetween, beforeFirst) = case secondDepPos of
         Nothing ->
-          ( if B.any (== ',') prefSuff then pref' else "," <> pref'
-          , if B.any (== ',') prefSuff then prefSuff' else "," <> prefSuff'
+          ( if B.any (== ',') prefSuff || noCommaSeparation then pref' else "," <> pref'
+          , if B.any (== ',') prefSuff || noCommaSeparation then prefSuff' else "," <> prefSuff'
           , suff
           )
           where
@@ -478,13 +482,14 @@ niceAlgorithm Config {cnfFields, cnfComponent, cnfOrigContents, cnfAdditions, cn
 
   let (before, after) = splitAtPosition pos cnfOrigContents
       (_, targetHeader) = splitAtPosition (getFieldNameAnn targetField) before
+      leadingSeparatorStyle = detectLeadingSeparator after
       filler = dropRepeatingSpaces $ B.drop 1 $ B.dropWhile (/= ':') targetHeader
-      leadingCommaStyle = detectLeadingComma after
-      filler' = maybe ("," <> filler) (filler <>) leadingCommaStyle
+      defaultSep = if isCommaSeparated after || cnfTargetField == BuildDepends then "," else ""
+      filler' = maybe (defaultSep <> filler) (filler <>) leadingSeparatorStyle
       newFieldContents =
-        fromMaybe "" leadingCommaStyle
+        fromMaybe "" leadingSeparatorStyle
           <> B.intercalate filler' (NE.toList cnfAdditions)
-          <> (if isJust leadingCommaStyle then filler else filler')
+          <> (if isJust leadingSeparatorStyle then filler else filler')
   pure $
     before <> newFieldContents <> after
 

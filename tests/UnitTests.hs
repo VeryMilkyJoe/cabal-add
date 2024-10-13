@@ -17,6 +17,7 @@ import Data.Maybe (mapMaybe)
 import Data.String.QQ (s)
 import Distribution.Client.Add (Config (..), TargetField (..), executeConfig, parseCabalFile)
 import Distribution.PackageDescription (ComponentName (..), LibraryName (..), TestSuite (TestSuite))
+import Distribution.Types.Component (Component (CLib))
 import System.Directory (findExecutable)
 import System.Exit (ExitCode (..))
 import System.IO.Temp (withSystemTempDirectory)
@@ -94,7 +95,7 @@ caseMultipleExposedModules1 =
       , catConfig =
           Config
             { cnfComponent = Right $ CLibName LMainLibName
-            , cnfAdditions = NE.fromList ["Test.Mod1, Test.Mod2"]
+            , cnfAdditions = NE.fromList ["Test.Mod1", "Test.Mod2"]
             , cnfTargetField = ExposedModules
             , cnfFields =
                 let Right (fields, _) = parseCabalFile "" inContents
@@ -136,7 +137,7 @@ caseMultipleExposedModulesUsingSpaces =
       , catConfig =
           Config
             { cnfComponent = Right $ CLibName LMainLibName
-            , cnfAdditions = NE.fromList ["Test.Mod1, Test.Mod2"]
+            , cnfAdditions = NE.fromList ["Test.Mod1", "Test.Mod2"]
             , cnfTargetField = ExposedModules
             , cnfFields =
                 let Right (fields, _) = parseCabalFile "" inContents
@@ -178,7 +179,7 @@ caseMultipleOtherModules =
       , catConfig =
           Config
             { cnfComponent = Right $ CTestName "testss"
-            , cnfAdditions = NE.fromList ["Test.Mod1, Mod3"]
+            , cnfAdditions = NE.fromList ["Test.Mod1", "Mod3"]
             , cnfTargetField = OtherModules
             , cnfFields =
                 let Right (fields, _) = parseCabalFile "" inContents
@@ -200,7 +201,8 @@ test-suite testss
   main-is: Main.hs
   type: exitcode-stdio-1.0
   other-modules:
-    Test.Mod1, Mod3,
+    Test.Mod1,
+    Mod3,
     Dir.Mod1,
     Dir.Mod2
 |]
@@ -225,6 +227,278 @@ test-suite testss
     Dir.Mod2
 |]
 
+caseMultipleOtherModulesUsingSpaces :: TestTree
+caseMultipleOtherModulesUsingSpaces =
+  mkTest $
+    CabalAddTest
+      { catName = "add multiple other modules with space separators"
+      , catConfig =
+          Config
+            { cnfComponent = Right $ CTestName "testss"
+            , cnfAdditions = NE.fromList ["Test.Mod1", "Mod3"]
+            , cnfTargetField = OtherModules
+            , cnfFields =
+                let Right (fields, _) = parseCabalFile "" inContents
+                 in fields
+            , cnfOrigContents = inContents
+            }
+      , catOutput =
+          [s|
+name:          dummy
+version:       0.13.0.0
+cabal-version: 2.0
+build-type:    Simple
+
+test-suite testss
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:
+    Test.Mod1
+    Mod3
+    Dir.Mod1
+    Dir.Mod2
+
+library
+  build-depends:
+    base >=4.15 && <5
+  exposed-modules: Test.Mod1, Test.Mod2
+|]
+      }
+  where
+    inContents =
+      [s|
+name:          dummy
+version:       0.13.0.0
+cabal-version: 2.0
+build-type:    Simple
+
+test-suite testss
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:
+    Dir.Mod1
+    Dir.Mod2
+
+library
+  build-depends:
+    base >=4.15 && <5
+  exposed-modules: Test.Mod1, Test.Mod2
+|]
+
+caseMultipleOtherModulesUsingLeadingCommas :: TestTree
+caseMultipleOtherModulesUsingLeadingCommas =
+  mkTest $
+    CabalAddTest
+      { catName = "add multiple other modules preserving leading commas"
+      , catConfig =
+          Config
+            { cnfComponent = Right $ CTestName "testss"
+            , cnfAdditions = NE.fromList ["Test.Mod1", "Mod3"]
+            , cnfTargetField = OtherModules
+            , cnfFields =
+                let Right (fields, _) = parseCabalFile "" inContents
+                 in fields
+            , cnfOrigContents = inContents
+            }
+      , catOutput =
+          [s|
+name:          dummy
+version:       0.13.0.0
+cabal-version: 2.0
+build-type:    Simple
+
+test-suite testss
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:  Test.Mod1
+                , Mod3
+                , Dir.Mod1
+                , Dir.Mod2
+
+library
+  build-depends:
+    base >=4.15 && <5
+  exposed-modules: Test.Mod1, Test.Mod2
+|]
+      }
+  where
+    inContents =
+      [s|
+name:          dummy
+version:       0.13.0.0
+cabal-version: 2.0
+build-type:    Simple
+
+test-suite testss
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:  Dir.Mod1
+                , Dir.Mod2
+
+library
+  build-depends:
+    base >=4.15 && <5
+  exposed-modules: Test.Mod1, Test.Mod2
+|]
+
+caseMultipleOtherModulesUsingLeadingSpaces :: TestTree
+caseMultipleOtherModulesUsingLeadingSpaces =
+  mkTest $
+    CabalAddTest
+      { catName = "add multiple other modules preserving leading spaces"
+      , catConfig =
+          Config
+            { cnfComponent = Right $ CTestName "testss"
+            , cnfAdditions = NE.fromList ["Test.Mod1", "Mod3"]
+            , cnfTargetField = OtherModules
+            , cnfFields =
+                let Right (fields, _) = parseCabalFile "" inContents
+                 in fields
+            , cnfOrigContents = inContents
+            }
+      , catOutput =
+          [s|
+name:          dummy
+version:       0.13.0.0
+cabal-version: 2.0
+build-type:    Simple
+
+test-suite testss
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:  Test.Mod1
+                  Mod3
+                  Dir.Mod1
+                  Dir.Mod2
+
+library
+  build-depends:
+    base >=4.15 && <5
+  exposed-modules: Test.Mod1, Test.Mod2
+|]
+      }
+  where
+    inContents =
+      [s|
+name:          dummy
+version:       0.13.0.0
+cabal-version: 2.0
+build-type:    Simple
+
+test-suite testss
+  main-is: Main.hs
+  type: exitcode-stdio-1.0
+  other-modules:  Dir.Mod1
+                  Dir.Mod2
+
+library
+  build-depends:
+    base >=4.15 && <5
+  exposed-modules: Test.Mod1, Test.Mod2
+|]
+
+caseMultipleOtherModulesWithImportFields :: TestTree
+caseMultipleOtherModulesWithImportFields =
+  mkTest $
+    CabalAddTest
+      { catName = "add multiple other modules with import field"
+      , catConfig =
+          Config
+            { cnfComponent = Right $ CLibName LMainLibName
+            , cnfAdditions = NE.fromList ["This.Dir.Mod1", "Mod3"]
+            , cnfTargetField = OtherModules
+            , cnfFields =
+                let Right (fields, _) = parseCabalFile "" inContents
+                 in fields
+            , cnfOrigContents = inContents
+            }
+      , catOutput =
+          [s|
+cabal-version: 2.2
+name:          dummy
+version:       0.13.0.0
+build-type:    Simple
+
+common foo
+  build-depends: bar
+  other-modules: Other
+
+library
+  import: foo
+  other-modules: This.Dir.Mod1, Mod3
+  build-depends: foo < 1 && >0.7, quux < 1
+  exposed-modules: Foo
+|]
+      }
+  where
+    inContents =
+      [s|
+cabal-version: 2.2
+name:          dummy
+version:       0.13.0.0
+build-type:    Simple
+
+common foo
+  build-depends: bar
+  other-modules: Other
+
+library
+  import: foo
+  build-depends: foo < 1 && >0.7, quux < 1
+  exposed-modules: Foo
+|]
+
+caseMultipleOtherModulesWithImportFields2 :: TestTree
+caseMultipleOtherModulesWithImportFields2 =
+  mkTest $
+    CabalAddTest
+      { catName = "add multiple other modules with capitalised import field"
+      , catConfig =
+          Config
+            { cnfComponent = Right $ CLibName LMainLibName
+            , cnfAdditions = NE.fromList ["This.Dir.Mod1", "Mod3"]
+            , cnfTargetField = OtherModules
+            , cnfFields =
+                let Right (fields, _) = parseCabalFile "" inContents
+                 in fields
+            , cnfOrigContents = inContents
+            }
+      , catOutput =
+          [s|
+cabal-version: 2.2
+name:          dummy
+version:       0.13.0.0
+build-type:    Simple
+
+common foo
+  build-depends: bar
+  other-modules: Other
+
+library
+  Import: foo
+  other-modules: This.Dir.Mod1, Mod3
+  build-depends: foo < 1 && >0.7, quux < 1
+  exposed-modules: Foo
+|]
+      }
+  where
+    inContents =
+      [s|
+cabal-version: 2.2
+name:          dummy
+version:       0.13.0.0
+build-type:    Simple
+
+common foo
+  build-depends: bar
+  other-modules: Other
+
+library
+  Import: foo
+  build-depends: foo < 1 && >0.7, quux < 1
+  exposed-modules: Foo
+|]
+
 prettyDiff :: [Diff String] -> String
 prettyDiff =
   unlines
@@ -247,4 +521,9 @@ main =
       , caseMultipleExposedModules1
       , caseMultipleExposedModulesUsingSpaces
       , caseMultipleOtherModules
+      , caseMultipleOtherModulesUsingSpaces
+      , caseMultipleOtherModulesUsingLeadingCommas
+      , caseMultipleOtherModulesUsingLeadingSpaces
+      , caseMultipleOtherModulesWithImportFields
+      , caseMultipleOtherModulesWithImportFields2
       ]
